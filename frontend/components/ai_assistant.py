@@ -28,9 +28,9 @@ def render_ai_assistant():
         with col_p1:
             provider = st.selectbox(
                 "Select LLM Provider:",
-                options=["llama_cpp", "gemini"],
+                options=["gemini", "llama_cpp"],
                 index=0,
-                help="Choose between your active local llama-server Gemma model or Google Gemini API."
+                help="Choose between Google Gemini API or your active local llama-server Gemma model."
             )
         with col_p2:
             if provider == "gemini":

@@ -210,9 +210,7 @@ Return your response in this EXACT JSON structure, and nothing else (do not wrap
         llm_response = call_llm(
             prompt=prompt,
             system_context=system_context,
-            provider="llama_cpp",
-            llama_url="http://localhost:8089/v1",
-            llama_model="unsloth/gemma-4-E2B-it-GGUF:UD-Q4_K_XL"
+            provider="gemini"
         )
         
         parsed_meta = extract_json(llm_response)

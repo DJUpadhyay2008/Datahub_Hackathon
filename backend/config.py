@@ -17,7 +17,7 @@ class Settings(BaseModel):
     DATAHUB_GMS_URL: str = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
     
     # LLM Settings (Defaults to active local llama-server Gemma 4 E2B model)
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "llama_cpp")  # Options: "llama_cpp", "gemini"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")  # Options: "llama_cpp", "gemini"
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     LLAMA_CPP_URL: str = os.getenv("LLAMA_CPP_URL", "http://localhost:8080/v1")  # Active local llama-server port
     LLAMA_CPP_MODEL: str = os.getenv("LLAMA_CPP_MODEL", "gemma-4-E2B-it-UD-Q4_K_XL.gguf")
