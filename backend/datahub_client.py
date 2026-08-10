@@ -288,4 +288,114 @@ class DataHubClient:
         dataset = self.get_dataset(dataset_urn)
         return dataset.get("tags", []) if dataset else []
 
+    def write_metadata(self, urn: str, description: str, tags: list, owner: str) -> Dict[str, Any]:
+        """
+        Write description, tags, and owner back to DataHub.
+        """
+        # Normalize URN if table name was passed
+        if not urn.startswith("urn:li:"):
+            found_urn = None
+            for key, val in FALLBACK_METADATA.items():
+                if val["name"].lower() == urn.lower():
+                    found_urn = key
+                    break
+            if found_urn:
+                urn = found_urn
+
+        result = {
+            "urn": urn,
+            "status": "success",
+            "updates": {}
+        }
+
+        # 1. Update fallback store
+        if urn in FALLBACK_METADATA:
+            if description is not None:
+                FALLBACK_METADATA[urn]["description"] = description
+                result["updates"]["description"] = description
+            if tags is not None:
+                FALLBACK_METADATA[urn]["tags"] = tags
+                result["updates"]["tags"] = tags
+            if owner is not None:
+                owner_formatted = owner if "(" in owner or not owner else f"{owner} (urn:li:corpuser:{owner.split(':')[-1]})"
+                FALLBACK_METADATA[urn]["owners"] = [owner_formatted] if owner_formatted else []
+                result["updates"]["owners"] = [owner_formatted] if owner_formatted else []
+        else:
+            FALLBACK_METADATA[urn] = {
+                "urn": urn,
+                "name": urn.split(",")[-2] if "," in urn else urn,
+                "platform": "postgres",
+                "description": description or "",
+                "owners": [owner] if owner else [],
+                "tags": tags or [],
+                "columns": [],
+                "upstreams": [],
+                "downstreams": []
+            }
+            result["updates"] = {
+                "description": description,
+                "tags": tags,
+                "owners": [owner] if owner else []
+            }
+
+        # 2. Emit to live GMS if online
+        if self.is_gms_online():
+            try:
+                from datahub.emitter.mcp import MetadataChangeProposalWrapper
+                from datahub.emitter.rest_emitter import DatahubRestEmitter
+                from datahub.metadata.schema_classes import (
+                    DatasetPropertiesClass,
+                    OwnershipClass,
+                    OwnerClass,
+                    OwnershipTypeClass,
+                    GlobalTagsClass,
+                    TagAssociationClass
+                )
+
+                emitter = DatahubRestEmitter(gms_server=self.gms_url)
+
+                if description:
+                    dataset_properties = DatasetPropertiesClass(description=description)
+                    mcp_desc = MetadataChangeProposalWrapper(
+                        entityUrn=urn,
+                        aspect=dataset_properties
+                    )
+                    emitter.emit(mcp_desc)
+
+                if tags:
+                    tag_associations = [TagAssociationClass(tag=f"urn:li:tag:{tag.strip()}") for tag in tags]
+                    global_tags = GlobalTagsClass(tags=tag_associations)
+                    mcp_tags = MetadataChangeProposalWrapper(
+                        entityUrn=urn,
+                        aspect=global_tags
+                    )
+                    emitter.emit(mcp_tags)
+
+                if owner:
+                    owner_urn = owner if owner.startswith("urn:li:") else f"urn:li:corpuser:{owner}"
+                    ownership = OwnershipClass(
+                        owners=[
+                            OwnerClass(
+                                owner=owner_urn,
+                                type=OwnershipTypeClass.TECHNICAL_OWNER
+                            )
+                        ]
+                    )
+                    mcp_owner = MetadataChangeProposalWrapper(
+                        entityUrn=urn,
+                        aspect=ownership
+                    )
+                    emitter.emit(mcp_owner)
+
+                result["live_gms_sync"] = True
+            except Exception as e:
+                logger.warning(f"Failed to write to live GMS: {e}")
+                result["live_gms_sync"] = False
+                result["gms_error"] = str(e)
+        else:
+            result["live_gms_sync"] = False
+            result["gms_error"] = "GMS offline"
+
+        return result
+
 datahub_client = DataHubClient()

@@ -65,5 +65,19 @@ def get_lineage(dataset_urn: str) -> Dict[str, Any]:
     logger.info(f"MCP Tool called: get_lineage(dataset_urn={dataset_urn!r})")
     return datahub_client.get_lineage(dataset_urn)
 
+@mcp.tool()
+def write_metadata(urn: str, description: str, tags: list, owner: str) -> Dict[str, Any]:
+    """
+    Write description, tags, and owner back to DataHub.
+    
+    Args:
+        urn: The unique resource name (URN) or dataset name (e.g. 'orders').
+        description: The description text to write.
+        tags: A list of tags to associate (e.g. ['PII', 'Tier1']).
+        owner: The owner string (e.g. 'alice_data_lead' or 'urn:li:corpuser:alice_data_lead').
+    """
+    logger.info(f"MCP Tool called: write_metadata(urn={urn!r}, description={description!r}, tags={tags!r}, owner={owner!r})")
+    return datahub_client.write_metadata(urn, description, tags, owner)
+
 if __name__ == "__main__":
     mcp.run()
