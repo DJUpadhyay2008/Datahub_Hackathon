@@ -21,6 +21,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mcp_server import mcp
 from ai_grounding import call_llm, retrieve_datahub_context_for_question
 
+# List of dataset URNs approved for write-back.
+APPROVED_URNS = {
+    "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.reviews,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.order_items,PROD)"
+}
+
 def extract_json(text: str) -> dict:
     """Helper to extract and parse JSON from the LLM response."""
     text = text.strip()

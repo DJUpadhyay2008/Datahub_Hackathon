@@ -56,6 +56,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from components.metadata_explorer import render_metadata_explorer
 from components.ai_assistant import render_ai_assistant
 from components.lineage_viewer import render_lineage_dag
+from components.autodoc_console import render_autodoc_console
 from datahub_client import FALLBACK_METADATA
 
 # Sidebar Navigation
@@ -70,6 +71,7 @@ page = st.sidebar.radio(
         "🔍 Metadata Explorer (Steps 4 & 7)",
         "🔄 Lineage DAG Viewer (Step 3)",
         "🤖 AI Grounded Assistant (Step 6)",
+        "🤖 AutoDoc Agent (Step 8)",
         "📖 DataHub Architecture Guide"
     ]
 )
@@ -158,6 +160,9 @@ elif page == "🔄 Lineage DAG Viewer (Step 3)":
 
 elif page == "🤖 AI Grounded Assistant (Step 6)":
     render_ai_assistant()
+
+elif page == "🤖 AutoDoc Agent (Step 8)":
+    render_autodoc_console()
 
 elif page == "📖 DataHub Architecture Guide":
     st.markdown("## 📖 DataHub Educational & Architecture Guide")

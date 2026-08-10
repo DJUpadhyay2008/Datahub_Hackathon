@@ -155,5 +155,104 @@ def ask_ai_assistant(req: AIQuestionRequest):
     )
     return res
 
+# ------------------------------------------------------------------------------
+# 9. AUTODOC AGENT ENDPOINTS (/autodoc/scan and /autodoc/write)
+# ------------------------------------------------------------------------------
+class WriteMetadataRequest(BaseModel):
+    urn: str
+    description: str
+    tags: List[str]
+    owner: str
+
+@app.get("/autodoc/scan", summary="Scan for undocumented datasets", tags=["AutoDoc"])
+async def scan_undocumented():
+    """
+    Scans for undocumented datasets and generates recommendations using LLM.
+    """
+    from autodoc_agent import discover_undocumented, extract_json
+    from ai_grounding import retrieve_datahub_context_for_question, call_llm
+    from mcp_server import mcp
+    
+    undoc = await discover_undocumented()
+    _, system_context = retrieve_datahub_context_for_question("")
+    
+    results = []
+    for ds in undoc:
+        urn = ds["urn"]
+        name = ds["name"]
+        platform = ds["platform"]
+        missing = ds["missing"]
+        
+        # 1. Gather Schema & Lineage via MCP tools
+        schema_res = await mcp.call_tool("get_schema", {"dataset_urn": urn})
+        schema = schema_res.structured_content.get("result", [])
+        
+        lineage_res = await mcp.call_tool("get_lineage", {"dataset_urn": urn})
+        lineage = lineage_res.structured_content.get("result", {})
+        
+        # 2. Call local LLM (Gemma 4 E2B) to generate recommendations
+        prompt = f"""
+Perform a metadata documentation and ownership assessment for the undocumented dataset: URN '{urn}'.
+Based on the table schemas, columns, and upstream/downstream lineage graphs provided in the Grounding Context, generate:
+1. A concise, accurate description for this dataset.
+2. A list of relevant tags (e.g., PII, Tier1, Financial, Operations, Logistics, Catalog, Analytics, Feedback, etc.).
+3. A suggested owner (based on the owners of its upstream/downstream datasets, or logical business/technical role).
+4. A brief confidence note explaining the reasoning/grounding behind these choices.
+
+Return your response in this EXACT JSON structure, and nothing else (do not wrap in markdown code blocks or add any other text):
+{{
+  "description": "...",
+  "tags": ["tag1", "tag2"],
+  "suggested_owner": "...",
+  "confidence_note": "..."
+}}
+"""
+        llm_response = call_llm(
+            prompt=prompt,
+            system_context=system_context,
+            provider="llama_cpp",
+            llama_url="http://localhost:8089/v1",
+            llama_model="unsloth/gemma-4-E2B-it-GGUF:UD-Q4_K_XL"
+        )
+        
+        parsed_meta = extract_json(llm_response)
+        
+        results.append({
+            "urn": urn,
+            "name": name,
+            "platform": platform,
+            "missing": missing,
+            "columns": schema,
+            "upstreams": lineage.get("upstreams", []),
+            "downstreams": lineage.get("downstreams", []),
+            "suggested": parsed_meta,
+            "raw_context": f"SCHEMA:\n{schema}\n\nLINEAGE:\n{lineage}"
+        })
+        
+    return {"results": results}
+
+@app.post("/autodoc/write", summary="Write generated metadata back to DataHub", tags=["AutoDoc"])
+async def write_back(req: WriteMetadataRequest):
+    """
+    Write recommended metadata back to DataHub only if URN is approved.
+    """
+    from autodoc_agent import APPROVED_URNS
+    from mcp_server import mcp
+    
+    if req.urn not in APPROVED_URNS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"URN '{req.urn}' is not in the approved list for write-back."
+        )
+        
+    res = await mcp.call_tool("write_metadata", {
+        "urn": req.urn,
+        "description": req.description,
+        "tags": req.tags,
+        "owner": req.owner
+    })
+    
+    return res.structured_content
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
