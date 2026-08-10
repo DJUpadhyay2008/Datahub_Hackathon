@@ -1,0 +1,169 @@
+# ==============================================================================
+# FILE: docker/docker-compose.yml
+# WHY THIS FILE EXISTS:
+#   Orchestrates the entire DataHub OSS ecosystem alongside our sample E-Commerce PostgreSQL database.
+#   It allows a beginner to bring up the full metadata management infrastructure locally with a single command.
+# WHAT IT DOES:
+#   Defines containerized services, environment variables, network bridges, volume mounts, and ports.
+# CONTAINER EXPLANATIONS:
+#   1. postgres-demo (Port 5432):
+#      - Our sample e-commerce transactional database containing Customers, Orders, Products, Payments, Inventory, Reviews.
+#      - Mounts database/init.sql into /docker-entrypoint-initdb.d/ to auto-populate data on container creation.
+#   2. zookeeper (Port 2181):
+#      - Centralized coordination service for managing Kafka cluster state, topic configurations, and broker leadership.
+#   3. kafka (Port 9092):
+#      - High-throughput distributed event streaming platform.
+#      - DataHub uses Kafka topics (MetadataChangeEvent, MetadataAuditEvent) to publish metadata updates asynchronously.
+#   4. schema-registry (Port 8081):
+#      - Manages Avro schemas for metadata event payloads sent through Kafka, ensuring backwards compatibility.
+#   5. elasticsearch (Port 9200):
+#      - Distributed search & analytics engine. Powers DataHub's full-text search, auto-complete, and metadata indexing.
+#   6. datahub-gms (Port 8080):
+#      - Generalized Metadata Service (GMS) - The CORE server of DataHub!
+#      - Exposes GraphQL and REST APIs, executes ingestion recipes, processes aspects, and manages lineage graphs.
+#   7. datahub-frontend (Port 9002):
+#      - Web UI dashboard for human users to visually browse metadata, view lineage DAGs, tag datasets, and edit descriptions.
+# HOW IT INTERACTS WITH DATAHUB:
+#   DataHub GMS connects to Elasticsearch for search queries and Kafka for event broadcasting.
+#   The ingestion framework (and our FastAPI backend) communicates with datahub-gms on http://localhost:8080.
+# ==============================================================================
+
+version: '3.8'
+
+networks:
+  datahub-network:
+    name: datahub-network
+    driver: bridge
+
+volumes:
+  postgres_data:
+  es_data:
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Sample E-Commerce PostgreSQL Database
+  # ----------------------------------------------------------------------------
+  postgres-demo:
+    image: postgres:15-alpine
+    container_name: postgres-demo
+    environment:
+      POSTGRES_DB: ecommerce_db
+      POSTGRES_USER: demo_user
+      POSTGRES_PASSWORD: demo_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - datahub-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo_user -d ecommerce_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ----------------------------------------------------------------------------
+  # 2. Apache ZooKeeper (Kafka Dependency)
+  # ----------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: datahub-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - datahub-network
+
+  # ----------------------------------------------------------------------------
+  # 3. Apache Kafka Event Streaming Engine
+  # ----------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: datahub-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    networks:
+      - datahub-network
+
+  # ----------------------------------------------------------------------------
+  # 4. Confluent Schema Registry
+  # ----------------------------------------------------------------------------
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    container_name: datahub-schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+    networks:
+      - datahub-network
+
+  # ----------------------------------------------------------------------------
+  # 5. Elasticsearch Search & Indexing Engine
+  # ----------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    container_name: datahub-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - datahub-network
+
+  # ----------------------------------------------------------------------------
+  # 6. DataHub GMS (Generalized Metadata Service) - Core API Engine
+  # ----------------------------------------------------------------------------
+  datahub-gms:
+    image: linkedin/datahub-gms:v0.13.0
+    container_name: datahub-gms
+    depends_on:
+      - postgres-demo
+      - kafka
+      - schema-registry
+      - elasticsearch
+    ports:
+      - "8080:8080"
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - KAFKA_BOOTSTRAP_SERVER=kafka:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - ENTITY_SERVICE_USER=datahub
+    networks:
+      - datahub-network
+
+  # ----------------------------------------------------------------------------
+  # 7. DataHub Frontend Web UI
+  # ----------------------------------------------------------------------------
+  datahub-frontend:
+    image: linkedin/datahub-frontend-react:v0.13.0
+    container_name: datahub-frontend
+    depends_on:
+      - datahub-gms
+    ports:
+      - "9002:9002"
+    environment:
+      - DATAHUB_GMS_HOST=datahub-gms
+      - DATAHUB_GMS_PORT=8080
+      - DATAHUB_SECRET=SecretForDataHubDemo
+      - KAFKA_BOOTSTRAP_SERVER=kafka:29092
+    networks:
+      - datahub-network

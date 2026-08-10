@@ -1,0 +1,17 @@
+# ==============================================================================
+# FILE: frontend/requirements.txt
+# WHY THIS FILE EXISTS:
+#   Lists all Python dependencies required by the Streamlit frontend application.
+# WHAT IT DOES:
+#   Specifies Streamlit UI framework, visual graph plotting libraries (PyVis, NetworkX),
+#   and HTTP libraries to render modern metadata exploration dashboards and chatbot interfaces.
+# HOW IT INTERACTS WITH DATAHUB:
+#   The Streamlit app calls the FastAPI backend (which talks directly to DataHub GMS)
+#   to render dataset schemas, owners, tags, lineage trees, and AI grounded responses.
+# ==============================================================================
+streamlit>=1.32.0
+requests>=2.31.0
+pandas>=2.2.0
+pyvis>=0.3.2
+networkx>=3.2.1
+plotly>=5.19.0

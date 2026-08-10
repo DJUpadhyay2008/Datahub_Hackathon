@@ -1,0 +1,62 @@
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+ENV/
+bin/
+lib/
+lib64/
+include/
+share/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# IDE / Editor configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+*.env
+secrets.json
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# NPM / frontend local files (in case they install node_modules)
+node_modules/
+.npm/
+dist/
+build/
+.next/
+.cache/
+
+# Logs and databases
+*.log

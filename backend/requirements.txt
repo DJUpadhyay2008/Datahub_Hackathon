@@ -1,0 +1,18 @@
+# ==============================================================================
+# FILE: backend/requirements.txt
+# WHY THIS FILE EXISTS:
+#   Lists all Python dependencies required by the FastAPI backend service to run,
+#   interact with DataHub APIs (via acryl-datahub REST/GraphQL client), and invoke LLMs.
+# WHAT IT DOES:
+#   Specifies pinned/compatible versions of Web Framework, DataHub SDK, database driver, and AI libraries.
+# HOW IT INTERACTS WITH DATAHUB:
+#   Installs `acryl-datahub` which provides the REST/GraphQL client and emitter library
+#   used by `datahub_client.py` and `ai_grounding.py` to query and emit metadata.
+# ==============================================================================
+fastapi>=0.110.0
+uvicorn>=0.28.0
+acryl-datahub>=0.13.0
+pydantic>=2.6.0
+requests>=2.31.0
+google-genai>=0.1.0
+psycopg2-binary>=2.9.9

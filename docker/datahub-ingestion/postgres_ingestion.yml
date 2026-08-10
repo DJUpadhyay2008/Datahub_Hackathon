@@ -1,0 +1,40 @@
+# ==============================================================================
+# FILE: docker/datahub-ingestion/postgres_ingestion.yml
+# WHY THIS FILE EXISTS:
+#   This is a DataHub Ingestion Recipe. DataHub's metadata crawler framework
+#   uses recipe YAML files to define how to extract metadata from source systems
+#   and push it into DataHub GMS.
+# WHAT IT DOES:
+#   1. Connects to our PostgreSQL database container (`postgres-demo`).
+#   2. Inspects database catalogs to extract tables: customers, orders, products, order_items, payments, inventory, reviews.
+#   3. Extracts column names, SQL data types, primary keys, foreign key constraints, table comments, and column comments.
+#   4. Pushes extracted metadata aspects to DataHub GMS running at http://localhost:8080.
+# HOW IT INTERACTS WITH DATAHUB:
+#   DataHub CLI (`datahub ingest -c postgres_ingestion.yml`) parses this file, invokes the `postgres` plugin,
+#   converts metadata into MetadataChangeProposals (MCPs), and submits them to GMS over REST HTTP endpoints.
+# ==============================================================================
+
+source:
+  type: postgres
+  config:
+    # Database connection parameters
+    host_port: "localhost:5433"
+    username: "demo_user"
+    password: "demo_password"
+    database: "ecommerce_db"
+    
+    # Filter settings: Ingest tables in the 'ecommerce' schema
+    schema_pattern:
+      allow:
+        - "ecommerce"
+    
+    # Extraction settings: Automatically pull table and column comments (DDL comments)
+    include_table_location_lineage: false
+    include_tables: true
+    include_views: true
+
+# Sink: Defines where the extracted metadata is sent
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
