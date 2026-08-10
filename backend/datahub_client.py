@@ -129,9 +129,9 @@ FALLBACK_METADATA = {
         "name": "reviews",
         "platform": "postgres",
         "schema_name": "ecommerce",
-        "description": "Product ratings and text feedback provided by customers.",
-        "owners": ["Customer Experience Team (urn:li:corpuser:cx_team)"],
-        "tags": ["Analytics", "Feedback"],
+        "description": "",
+        "owners": [],
+        "tags": [],
         "columns": [
             {"name": "review_id", "type": "INTEGER", "description": "Primary key review ID.", "is_pk": True},
             {"name": "product_id", "type": "INTEGER", "description": "Foreign key pointing to products table.", "is_pk": False},
@@ -142,6 +142,26 @@ FALLBACK_METADATA = {
         "upstreams": [
             "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.products,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.customers,PROD)"
+        ],
+        "downstreams": []
+    },
+    "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.order_items,PROD)": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.order_items,PROD)",
+        "name": "order_items",
+        "platform": "postgres",
+        "schema_name": "ecommerce",
+        "description": "",
+        "owners": [],
+        "tags": [],
+        "columns": [
+            {"name": "order_id", "type": "INTEGER", "description": "Foreign key reference to orders table.", "is_pk": False},
+            {"name": "product_id", "type": "INTEGER", "description": "Foreign key pointing to products table.", "is_pk": False},
+            {"name": "quantity", "type": "INTEGER", "description": "Number of items ordered.", "is_pk": False},
+            {"name": "price", "type": "NUMERIC(10,2)", "description": "Unit price of the product at order time.", "is_pk": False}
+        ],
+        "upstreams": [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.ecommerce.products,PROD)"
         ],
         "downstreams": []
     },
